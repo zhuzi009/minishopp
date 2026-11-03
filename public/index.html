@@ -265,12 +265,21 @@
         <textarea name="address" rows="2" required></textarea>
       </label>
 
-      <div class="payment-note">
-        <strong>Төлем әдісі</strong>
-        <p>
-          Kaspi QR немесе Visa/Mastercard.
-          Қолжетімді әдістер төлем провайдерінің
-          бетінде көрсетіледі.
+        <div class="payment-note">
+  <strong>Төлем әдісін таңдаңыз</strong>
+
+  <label>
+    <input type="radio" name="paymentMethod" value="Kaspi" checked>
+    Kaspi
+  </label>
+
+  <label>
+    <input type="radio" name="paymentMethod" value="Карта">
+    Visa / Mastercard
+  </label>
+
+  <p>Демо төлем: нақты ақша алынбайды.</p>
+</div>
         </p>
       </div>
 
