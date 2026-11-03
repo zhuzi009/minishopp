@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="kk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MiniShop — Онлайн дүкен</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="logo" href="#"><span>◇</span> MiniShop</a>
+  <nav><a href="#features">Мүмкіндіктер</a><a href="#catalog">Каталог</a><a href="#about">Біз туралы</a></nav>
+  <div class="top-actions">
+    <button class="text-btn" id="accountBtn">Кіру</button>
+    <button class="primary small" id="cartOpen">Себет <span id="cartCount">0</span></button>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">ОНЛАЙН САУДА · ОҢАЙ ӘРІ ЫҢҒАЙЛЫ</p>
+      <h1>Өзіңізге керектің<br>бәрін <span>бір жерден</span><br>табыңыз.</h1>
+      <p class="hero-text">Сүйікті тауарларыңызды таңдаңыз, себетке қосыңыз және тапсырысты бірнеше қадамда рәсімдеңіз.</p>
+      <a class="primary hero-btn" href="#catalog">Сатып алуды бастау →</a>
+      <div class="trust"><span>✦ Сапалы тауарлар</span><span>✓ Ыңғайлы каталог</span><span>♡ Қауіпсіз төлем</span></div>
+    </div>
+    <div class="hero-card">
+      <div class="card-head"><strong>Сіздің себетіңіз</strong><span class="live">● Белсенді</span></div>
+      <div class="basket-preview"><small>СЕБЕТТЕГІ ТАУАРЛАР</small><div><b id="heroCount">0</b> <span>тауар</span></div><div class="progress"><i id="heroProgress"></i></div><small>Таңдалған тауарлар</small><strong id="heroTotal">0 ₸</strong></div>
+      <div class="mini-line"><span>👟</span><div><b>Күнделікті кроссовка</b><small>18 900 ₸</small></div><button data-quick-add="1">+</button></div>
+      <div class="mini-line"><span>👜</span><div><b>Классикалық сөмке</b><small>15 900 ₸</small></div><button data-quick-add="2">+</button></div>
+      <div class="card-foot">Таңдаулы тауарлар <span>Жаңартылады ↗</span></div>
+    </div>
+  </section>
+
+  <section class="features section" id="features">
+    <p class="eyebrow">МҮМКІНДІКТЕР</p><h2>Сатып алуға қажетті<br>барлық құрал бір жерде</h2>
+    <div class="feature-grid">
+      <article><span>⌕</span><h3>Жылдам іздеу</h3><p>Қажетті тауарды атауы бойынша оңай табыңыз.</p></article>
+      <article><span>▣</span><h3>Ыңғайлы себет</h3><p>Тауар санын өзгертіп, жалпы соманы бірден көріңіз.</p></article>
+      <article><span>◇</span><h3>Қауіпсіз төлем</h3><p>Төлем серіктес провайдердің қорғалған бетінде орындалады.</p></article>
+    </div>
+  </section>
+
+  <section class="catalog section" id="catalog">
+    <div class="section-head"><div><p class="eyebrow">БІЗДІҢ ТАУАРЛАР</p><h2>Таңдаулы каталог</h2></div><input id="search" class="search" placeholder="Тауар іздеу..."></div>
+    <div class="filters" id="filters">
+      <button class="filter active" data-category="Барлығы">Барлығы</button>
+      <button class="filter" data-category="Киім">Киім</button>
+      <button class="filter" data-category="Аяқ киім">Аяқ киім</button>
+      <button class="filter" data-category="Сөмке">Сөмке</button>
+      <button class="filter" data-category="Аксессуар">Аксессуар</button>
+    </div>
+    <div class="product-grid" id="products"><p>Тауарлар жүктелуде...</p></div>
+  </section>
+
+  <section class="about section" id="about"><p class="eyebrow">MINISHOP</p><h2>Сатып алу енді оңай</h2><p>Таңдаңыз, себетке қосыңыз және тапсырысыңызды қауіпсіз рәсімдеңіз.</p></section>
+</main>
+
+<footer><a class="logo" href="#"><span>◇</span> MiniShop</a><small>© 2026 MiniShop. Барлық құқықтар қорғалған.</small></footer>
+
+<div class="overlay" id="cartOverlay">
+  <aside class="drawer">
+    <div class="drawer-head"><div><p class="eyebrow">ТАПСЫРЫС</p><h2>Сіздің себетіңіз</h2></div><button class="close" data-close="cartOverlay">×</button></div>
+    <div id="cartItems" class="cart-items"></div>
+    <div class="cart-total"><span>Жалпы сома</span><strong id="cartTotal">0 ₸</strong></div>
+    <button class="primary full" id="checkoutBtn">Тапсырысты рәсімдеу →</button>
+    <p class="hint">Төлем тапсырысты рәсімдегеннен кейін қорғалған төлем бетінде жасалады.</p>
+  </aside>
+</div>
+
+<div class="overlay" id="authOverlay">
+  <section class="modal">
+    <button class="close" data-close="authOverlay">×</button>
+    <p class="eyebrow">ҚОШ КЕЛДІҢІЗ</p><h2 id="authTitle">Жүйеге кіру</h2>
+    <form id="authForm">
+      <label id="nameLabel" class="hidden">Аты-жөніңіз<input name="name" autocomplete="name"></label>
+      <label>Email<input name="email" type="email" required autocomplete="email"></label>
+      <label>Құпия сөз<input name="password" type="password" required minlength="8" autocomplete="current-password"></label>
+      <button class="primary full" id="authSubmit">Кіру →</button>
+    </form>
+    <p class="switch-auth" id="switchAuth">Аккаунтыңыз жоқ па? <button>Тіркелу</button></p>
+    <p class="form-message" id="authMessage"></p>
+  </section>
+</div>
+
+<div class="overlay" id="checkoutOverlay">
+  <section class="modal checkout-modal">
+    <button class="close" data-close="checkoutOverlay">×</button>
+    <p class="eyebrow">СОҢҒЫ ҚАДАМ</p><h2>Тапсырысты рәсімдеу</h2>
+    <form id="checkoutForm">
+      <label>Аты-жөніңіз<input name="customerName" required></label>
+      <label>Телефон нөмірі<input name="phone" type="tel" placeholder="+7 7__ ___ __ __" required></label>
+      <label>Жеткізу мекенжайы<textarea name="address" rows="2" required></textarea></label>
+      <div class="payment-note"><strong>Төлем әдісі</strong><p>Kaspi QR немесе Visa/Mastercard — Freedom Pay төлем бетінде мерчант аккаунтыңызда қосылған әдістер көрсетіледі.</p></div>
+      <div class="checkout-total"><span>Төлеуге:</span><strong id="checkoutTotal">0 ₸</strong></div>
+      <button class="primary full" type="submit">Қауіпсіз төлемге өту →</button>
+    </form>
+    <p class="form-message" id="checkoutMessage"></p>
+  </section>
+</div>
+
+<div class="overlay" id="ordersOverlay">
+  <section class="modal orders-modal">
+    <button class="close" data-close="ordersOverlay">×</button>
+    <p class="eyebrow">ЖЕКЕ КАБИНЕТ</p><h2>Менің тапсырыстарым</h2>
+    <div id="ordersList"></div><button class="text-btn" id="logoutBtn">Жүйеден шығу</button>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>
