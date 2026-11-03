@@ -29,19 +29,18 @@ async function api(url, options = {}) {
   return data;
 }
 
-// Хабарлама шығару
+// Хабарлама
 function toast(message) {
   const element = $("#toast");
-
   element.textContent = message;
   element.classList.add("show");
 
   setTimeout(() => {
     element.classList.remove("show");
-  }, 2400);
+  }, 2500);
 }
 
-// Терезелерді ашу және жабу
+// Терезелер
 function openOverlay(id) {
   $("#" + id).classList.add("show");
 }
@@ -67,12 +66,11 @@ document.querySelectorAll(".overlay").forEach(overlay => {
 // Тауарларды жүктеу
 async function loadProducts() {
   products = await api("/api/products");
-
   renderProducts();
   renderCart();
 }
 
-// Каталогты көрсету
+// Каталог
 function renderProducts() {
   const term = ($("#search").value || "").toLowerCase();
 
@@ -87,23 +85,14 @@ function renderProducts() {
   $("#products").innerHTML = shown.length
     ? shown.map(product => `
       <article class="product">
-
-        <div class="product-art">
-          ${product.emoji}
-        </div>
+        <div class="product-art">${product.emoji}</div>
 
         <div class="product-info">
-
-          <span class="product-category">
-            ${product.category}
-          </span>
-
+          <span class="product-category">${product.category}</span>
           <h3>${product.name}</h3>
-
           <p>${product.description}</p>
 
           <div class="product-bottom">
-
             <strong class="product-price">
               ${money(product.price)}
             </strong>
@@ -111,7 +100,6 @@ function renderProducts() {
             <button class="add-btn" data-add="${product.id}">
               + Себетке
             </button>
-
           </div>
         </div>
       </article>
@@ -128,10 +116,9 @@ function renderProducts() {
 // Іздеу
 $("#search").addEventListener("input", renderProducts);
 
-// Санаттарды сүзу
+// Санат бойынша сүзу
 $("#filters").addEventListener("click", event => {
   const button = event.target.closest("[data-category]");
-
   if (!button) return;
 
   category = button.dataset.category;
@@ -149,24 +136,21 @@ function saveCart() {
   renderCart();
 }
 
-// Себетке тауар қосу
+// Себетке қосу
 function addToCart(id) {
   const item = cart.find(product => product.id === id);
 
   if (item) {
     item.quantity = Math.min(20, item.quantity + 1);
   } else {
-    cart.push({
-      id: id,
-      quantity: 1
-    });
+    cart.push({ id, quantity: 1 });
   }
 
   saveCart();
   toast("Тауар себетке қосылды!");
 }
 
-// Себеттегі тауарлар
+// Себет тауарлары
 function cartProducts() {
   return cart
     .map(item => ({
@@ -179,13 +163,12 @@ function cartProducts() {
 // Жалпы соманы есептеу
 function total() {
   return cartProducts().reduce(
-    (sum, product) =>
-      sum + product.price * product.quantity,
+    (sum, product) => sum + product.price * product.quantity,
     0
   );
 }
 
-// Себетті экранда көрсету
+// Себетті көрсету
 function renderCart() {
   const items = cartProducts();
 
@@ -207,10 +190,7 @@ function renderCart() {
   $("#cartItems").innerHTML = items.length
     ? items.map(product => `
       <div class="cart-row">
-
-        <div class="cart-emoji">
-          ${product.emoji}
-        </div>
+        <div class="cart-emoji">${product.emoji}</div>
 
         <div class="cart-desc">
           <b>${product.name}</b>
@@ -221,28 +201,23 @@ function renderCart() {
 
         <div class="qty">
           <button data-dec="${product.id}">−</button>
-
           <b>${product.quantity}</b>
-
           <button data-inc="${product.id}">+</button>
         </div>
 
         <button class="remove" data-remove="${product.id}">
           ×
         </button>
-
       </div>
     `).join("")
     : '<p class="hint">Себет әзірге бос. Каталогтан тауар таңдаңыз.</p>';
 
   document.querySelectorAll("[data-inc]").forEach(button => {
-    button.onclick = () =>
-      changeQty(Number(button.dataset.inc), 1);
+    button.onclick = () => changeQty(Number(button.dataset.inc), 1);
   });
 
   document.querySelectorAll("[data-dec]").forEach(button => {
-    button.onclick = () =>
-      changeQty(Number(button.dataset.dec), -1);
+    button.onclick = () => changeQty(Number(button.dataset.dec), -1);
   });
 
   document.querySelectorAll("[data-remove]").forEach(button => {
@@ -250,7 +225,6 @@ function renderCart() {
       cart = cart.filter(
         item => item.id !== Number(button.dataset.remove)
       );
-
       saveCart();
     };
   });
@@ -259,7 +233,6 @@ function renderCart() {
 // Тауар санын өзгерту
 function changeQty(id, delta) {
   const item = cart.find(product => product.id === id);
-
   if (!item) return;
 
   item.quantity += delta;
@@ -271,7 +244,7 @@ function changeQty(id, delta) {
   saveCart();
 }
 
-// Басты беттегі жылдам қосу батырмалары
+// Басты беттен себетке қосу
 document.querySelectorAll("[data-quick-add]").forEach(button => {
   button.addEventListener("click", () => {
     addToCart(Number(button.dataset.quickAdd));
@@ -283,7 +256,7 @@ $("#cartOpen").onclick = () => {
   openOverlay("cartOverlay");
 };
 
-// Тапсырыс рәсімдеу
+// Тапсырыс рәсімдеу терезесі
 $("#checkoutBtn").onclick = () => {
   if (!cart.length) {
     return toast("Себет бос!");
@@ -292,7 +265,6 @@ $("#checkoutBtn").onclick = () => {
   if (!currentUser) {
     closeOverlay("cartOverlay");
     openAuth("login");
-
     return toast("Алдымен жүйеге кіріңіз.");
   }
 
@@ -300,7 +272,7 @@ $("#checkoutBtn").onclick = () => {
   openOverlay("checkoutOverlay");
 };
 
-// Кіру немесе тіркелу терезесі
+// Кіру және тіркелу
 function openAuth(mode) {
   authMode = mode;
 
@@ -325,7 +297,6 @@ function openAuth(mode) {
   };
 
   $("#authMessage").textContent = "";
-
   openOverlay("authOverlay");
 }
 
@@ -338,7 +309,7 @@ $("#accountBtn").onclick = () => {
   }
 };
 
-// Тіркелу және жүйеге кіру
+// Тіркелу және кіру
 $("#authForm").onsubmit = async event => {
   event.preventDefault();
 
@@ -368,36 +339,38 @@ $("#authForm").onsubmit = async event => {
   }
 };
 
-// Пайдаланушы батырмасын жаңарту
+// Аккаунт батырмасын жаңарту
 function updateAccountButton() {
   $("#accountBtn").textContent = currentUser
     ? "Менің тапсырыстарым"
     : "Кіру";
 }
 
-// Қолданушыны тексеру
+// Пайдаланушыны тексеру
 async function checkUser() {
   try {
     const data = await api("/api/me");
-
     currentUser = data.user;
-
     updateAccountButton();
-
   } catch (error) {
     console.error(error);
   }
 }
 
-// Тапсырысты рәсімдеу
+// ТАПСЫРЫС ЖӘНЕ ДЕМО ТӨЛЕМ
 $("#checkoutForm").onsubmit = async event => {
   event.preventDefault();
 
   $("#checkoutMessage").textContent = "";
 
   const form = new FormData(event.target);
+
   const body = Object.fromEntries(form.entries());
 
+  // Таңдалған төлем әдісін серверге жіберу
+  body.paymentMethod = form.get("paymentMethod");
+
+  // Себеттегі тауарларды жіберу
   body.items = cart.map(item => ({
     id: item.id,
     quantity: item.quantity
@@ -409,8 +382,19 @@ $("#checkoutForm").onsubmit = async event => {
       body: JSON.stringify(body)
     });
 
-    // Қорғалған төлем бетіне өту
-    window.location.href = result.redirectUrl;
+    if (result.success) {
+      cart = [];
+      saveCart();
+
+      closeOverlay("checkoutOverlay");
+
+      event.target.reset();
+
+      toast("Тапсырыс сәтті рәсімделді! №" + result.orderId);
+
+      // Тапсырыстар тарихын ашу
+      await showOrders();
+    }
 
   } catch (error) {
     $("#checkoutMessage").textContent = error.message;
@@ -430,11 +414,9 @@ async function showOrders() {
 
           <span class="status">
             · ${
-              order.status === "paid"
-                ? "Төленді"
-                : order.status === "failed"
-                  ? "Төлем өтпеді"
-                  : "Төлем күтілуде"
+              order.status === "paid_demo"
+                ? "Демо төлем расталды"
+                : "Төлем мәртебесі белгісіз"
             }
           </span>
 
@@ -446,6 +428,10 @@ async function showOrders() {
 
           <small>
             Жалпы: ${order.total_label}
+          </small>
+
+          <small>
+            Төлем әдісі: ${order.payment_method}
           </small>
 
         </div>
@@ -468,7 +454,6 @@ $("#logoutBtn").onclick = async () => {
     });
 
     currentUser = null;
-
     updateAccountButton();
 
     closeOverlay("ordersOverlay");
@@ -480,19 +465,19 @@ $("#logoutBtn").onclick = async () => {
   }
 };
 
-// Төлем нәтижесі
+// Төлем нәтижесі туралы хабарлама
 const paymentState =
   new URLSearchParams(location.search).get("payment");
 
 if (paymentState === "success") {
-  toast("Төлем бетіне қайттыңыз. Тапсырыс мәртебесін тексеріңіз.");
+  toast("Тапсырыс сәтті рәсімделді!");
 }
 
 if (paymentState === "failed") {
-  toast("Төлем аяқталмады. Қайта көріңіз.");
+  toast("Тапсырыс аяқталмады.");
 }
 
-// Бастапқы іске қосу
+// Сайтты іске қосу
 checkUser();
 
 loadProducts().catch(error => {
