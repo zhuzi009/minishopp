@@ -1,30 +1,25 @@
-require("dotenv").config();
-
 const express = require("express");
 const session = require("express-session");
-const SQLiteStore = require("connect-sqlite3")(session);
 const Database = require("better-sqlite3");
 const bcrypt = require("bcryptjs");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-const crypto = require("crypto");
 const path = require("path");
+const crypto = require("crypto");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BASE_URL = process.env.BASE_URL;
 
 const db = new Database("minishop.sqlite");
+
 db.pragma("journal_mode = WAL");
 
-// ДЕРЕКҚОР
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -35,15 +30,12 @@ CREATE TABLE IF NOT EXISTS orders (
   address TEXT NOT NULL,
   items_json TEXT NOT NULL,
   total INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'awaiting_payment',
-  payment_id TEXT,
-  payment_method TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(user_id) REFERENCES users(id)
+  payment_method TEXT NOT NULL,
+  status TEXT DEFAULT 'paid_demo',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 `);
 
-// ТАУАРЛАР
 const PRODUCTS = [
   {
     id: 1,
@@ -51,7 +43,7 @@ const PRODUCTS = [
     category: "Аяқ киім",
     price: 18900,
     emoji: "👟",
-    description: "Күнделікті киюге ыңғайлы, жеңіл кроссовка."
+    description: "Күнделікті киюге ыңғайлы кроссовка."
   },
   {
     id: 2,
@@ -59,7 +51,7 @@ const PRODUCTS = [
     category: "Сөмке",
     price: 15900,
     emoji: "👜",
-    description: "Күнделікті образға арналған сәнді сөмке."
+    description: "Сәнді әрі ыңғайлы сөмке."
   },
   {
     id: 3,
@@ -67,7 +59,7 @@ const PRODUCTS = [
     category: "Аксессуар",
     price: 12500,
     emoji: "⌚",
-    description: "Қарапайым әрі әдемі дизайндағы сағат."
+    description: "Әдемі дизайндағы сағат."
   },
   {
     id: 4,
@@ -75,7 +67,7 @@ const PRODUCTS = [
     category: "Аксессуар",
     price: 8900,
     emoji: "🕶️",
-    description: "Жеңіл жақтаулы сәнді көзілдірік."
+    description: "Сәнді күннен қорғайтын көзілдірік."
   },
   {
     id: 5,
@@ -83,36 +75,29 @@ const PRODUCTS = [
     category: "Киім",
     price: 6900,
     emoji: "👕",
-    description: "Жұмсақ матадан тігілген базалық футболка."
+    description: "Жұмсақ матадан тігілген футболка."
   },
   {
     id: 6,
-    name: "Әйелдерге арналған әмиян",
+    name: "Әйелдер әмияны",
     category: "Сөмке",
     price: 9900,
     emoji: "👛",
-    description: "Ықшам, күнделікті қолдануға ыңғайлы әмиян."
+    description: "Ықшам әрі ыңғайлы әмиян."
   }
 ];
 
-// НЕГІЗГІ БАПТАУЛАР
 app.use(helmet({
   contentSecurityPolicy: false
 }));
 
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.use(session({
-  store: new SQLiteStore({
-    db: "sessions.sqlite",
-    dir: "."
-  }),
-
-  secret: process.env.SESSION_SECRET || "change-this-secret",
+  secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex"),
   resave: false,
   saveUninitialized: false,
-
   cookie: {
     httpOnly: true,
     sameSite: "lax",
@@ -121,20 +106,13 @@ app.use(session({
   }
 }));
 
-// HTML, CSS, JS ФАЙЛДАРЫ
 app.use(express.static(path.join(__dirname, "public")));
 
-const authLimiter = rateLimit({
+const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20
+  limit: 30
 });
 
-const paymentLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10
-});
-
-// ЖҮЙЕГЕ КІРУДІ ТЕКСЕРУ
 function requireAuth(req, res, next) {
   if (!req.session.user) {
     return res.status(401).json({
@@ -146,93 +124,32 @@ function requireAuth(req, res, next) {
 }
 
 function money(amount) {
-  return new Intl.NumberFormat("kk-KZ")
-    .format(amount) + " ₸";
+  return new Intl.NumberFormat("kk-KZ").format(amount) + " ₸";
 }
 
-// ТӨЛЕМ ҚОЛТАҢБАСЫ
-function freedomPaySignature(scriptName, params, secret) {
-  const values = Object.keys(params)
-    .filter(key => key !== "pg_sig")
-    .sort()
-    .flatMap(key => {
-      const value = params[key];
-
-      if (value && typeof value === "object") {
-        return Object.keys(value)
-          .sort()
-          .map(sub => String(value[sub]));
-      }
-
-      return [String(value)];
-    });
-
-  return crypto.createHash("md5")
-    .update([scriptName, ...values, secret].join(";"))
-    .digest("hex");
-}
-
-function verifyFreedomPay(params) {
-  if (
-    !params.pg_sig ||
-    !process.env.FREEDOMPAY_SECRET_KEY
-  ) {
-    return false;
-  }
-
-  const expected = freedomPaySignature(
-    "result",
-    params,
-    process.env.FREEDOMPAY_SECRET_KEY
-  );
-
-  const received = String(params.pg_sig);
-
-  return expected.length === received.length &&
-    crypto.timingSafeEqual(
-      Buffer.from(expected),
-      Buffer.from(received)
-    );
-}
-
-function parseXmlValue(xml, tag) {
-  const match = xml.match(
-    new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`)
-  );
-
-  return match ? match[1].trim() : null;
-}
-
-// ТАУАРЛАР ТІЗІМІ
+// Тауарлар
 app.get("/api/products", (req, res) => {
   res.json(PRODUCTS);
 });
 
-// ПАЙДАЛАНУШЫНЫ ТЕКСЕРУ
+// Қолданушыны тексеру
 app.get("/api/me", (req, res) => {
   res.json({
     user: req.session.user || null
   });
 });
 
-// ТІРКЕЛУ
-app.post("/api/register", authLimiter, async (req, res) => {
-  const { name, email, password } = req.body || {};
+// Тіркелу
+app.post("/api/register", limiter, async (req, res) => {
+  const { name, email, password } = req.body;
 
-  if (
-    !name ||
-    !email ||
-    !password ||
-    password.length < 8
-  ) {
+  if (!name || !email || !password || password.length < 8) {
     return res.status(400).json({
-      error: "Аты-жөніңізді, email және кемінде 8 таңбалы құпиясөз енгізіңіз."
+      error: "Барлық жолды толтырыңыз. Құпиясөз кемінде 8 таңба болуы керек."
     });
   }
 
-  const normalizedEmail = String(email)
-    .trim()
-    .toLowerCase();
+  const normalizedEmail = String(email).trim().toLowerCase();
 
   try {
     const hash = await bcrypt.hash(password, 12);
@@ -240,11 +157,7 @@ app.post("/api/register", authLimiter, async (req, res) => {
     const result = db.prepare(`
       INSERT INTO users (name, email, password_hash)
       VALUES (?, ?, ?)
-    `).run(
-      String(name).trim(),
-      normalizedEmail,
-      hash
-    );
+    `).run(String(name).trim(), normalizedEmail, hash);
 
     req.session.user = {
       id: result.lastInsertRowid,
@@ -252,34 +165,27 @@ app.post("/api/register", authLimiter, async (req, res) => {
       email: normalizedEmail
     };
 
-    res.json({
-      user: req.session.user
-    });
+    res.json({ user: req.session.user });
 
   } catch (error) {
     res.status(409).json({
-      error: "Бұл email бұрын тіркелген болуы мүмкін."
+      error: "Бұл email бұрын тіркелген."
     });
   }
 });
 
-// ЖҮЙЕГЕ КІРУ
-app.post("/api/login", authLimiter, async (req, res) => {
-  const { email, password } = req.body || {};
+// Кіру
+app.post("/api/login", limiter, async (req, res) => {
+  const { email, password } = req.body;
 
   const user = db.prepare(
     "SELECT * FROM users WHERE email = ?"
-  ).get(
-    String(email || "").trim().toLowerCase()
-  );
+  ).get(String(email || "").trim().toLowerCase());
 
-  if (
-    !user ||
-    !(await bcrypt.compare(
-      String(password || ""),
-      user.password_hash
-    ))
-  ) {
+  if (!user || !(await bcrypt.compare(
+    String(password || ""),
+    user.password_hash
+  ))) {
     return res.status(401).json({
       error: "Email немесе құпиясөз қате."
     });
@@ -291,283 +197,139 @@ app.post("/api/login", authLimiter, async (req, res) => {
     email: user.email
   };
 
-  res.json({
-    user: req.session.user
-  });
+  res.json({ user: req.session.user });
 });
 
-// ЖҮЙЕДЕН ШЫҒУ
+// Шығу
 app.post("/api/logout", (req, res) => {
   req.session.destroy(() => {
     res.json({ ok: true });
   });
 });
 
-// ТАПСЫРЫСТАР ТАРИХЫ
-app.get("/api/orders", requireAuth, (req, res) => {
-  const orders = db.prepare(`
-    SELECT
-      id,
-      customer_name,
+// Тапсырыс рәсімдеу — ДЕМО ТӨЛЕМ
+app.post("/api/checkout", requireAuth, limiter, (req, res) => {
+  try {
+    const {
+      items,
+      customerName,
       phone,
       address,
-      items_json,
+      paymentMethod
+    } = req.body;
+
+    if (
+      !Array.isArray(items) ||
+      items.length === 0 ||
+      !customerName ||
+      !phone ||
+      !address
+    ) {
+      return res.status(400).json({
+        error: "Тапсырыс деректерін толық толтырыңыз."
+      });
+    }
+
+    if (!["Kaspi", "Карта"].includes(paymentMethod)) {
+      return res.status(400).json({
+        error: "Төлем әдісін таңдаңыз."
+      });
+    }
+
+    const safeItems = items.map(item => {
+      const product = PRODUCTS.find(
+        p => p.id === Number(item.id)
+      );
+
+      const quantity = Number(item.quantity);
+
+      if (
+        !product ||
+        !Number.isInteger(quantity) ||
+        quantity < 1 ||
+        quantity > 20
+      ) {
+        throw new Error("Тауар деректері дұрыс емес.");
+      }
+
+      return {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity
+      };
+    });
+
+    const total = safeItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    const orderId = "MS-" + Date.now();
+
+    // Демо нұсқада төлем бірден расталған деп белгіленеді.
+    db.prepare(`
+      INSERT INTO orders (
+        id,
+        user_id,
+        customer_name,
+        phone,
+        address,
+        items_json,
+        total,
+        payment_method,
+        status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      orderId,
+      req.session.user.id,
+      String(customerName).trim(),
+      String(phone).trim(),
+      String(address).trim(),
+      JSON.stringify(safeItems),
       total,
-      status,
-      payment_method,
-      created_at
-    FROM orders
+      paymentMethod,
+      "paid_demo"
+    );
+
+    res.json({
+      success: true,
+      orderId,
+      message: "Демо тапсырыс сәтті рәсімделді!",
+      redirectUrl: "/?payment=success&order=" + orderId
+    });
+
+  } catch (error) {
+    res.status(400).json({
+      error: error.message || "Тапсырыс рәсімделмеді."
+    });
+  }
+});
+
+// Тапсырыстар тарихы
+app.get("/api/orders", requireAuth, (req, res) => {
+  const orders = db.prepare(`
+    SELECT * FROM orders
     WHERE user_id = ?
     ORDER BY created_at DESC
   `).all(req.session.user.id);
 
-  res.json(
-    orders.map(order => ({
-      ...order,
-      items: JSON.parse(order.items_json),
-      total_label: money(order.total)
-    }))
-  );
+  res.json(orders.map(order => ({
+    ...order,
+    items: JSON.parse(order.items_json),
+    total_label: money(order.total)
+  })));
 });
 
-// ТАПСЫРЫС ЖӘНЕ ТӨЛЕМ
-app.post(
-  "/api/checkout",
-  requireAuth,
-  paymentLimiter,
-  async (req, res) => {
-    try {
-      if (
-        !BASE_URL ||
-        !process.env.FREEDOMPAY_MERCHANT_ID ||
-        !process.env.FREEDOMPAY_SECRET_KEY
-      ) {
-        return res.status(503).json({
-          error: "Төлем жүйесі әлі бапталмаған. Freedom Pay деректерін серверге енгізу қажет."
-        });
-      }
-
-      const {
-        items,
-        customerName,
-        phone,
-        address
-      } = req.body || {};
-
-      if (
-        !Array.isArray(items) ||
-        !items.length ||
-        !customerName ||
-        !phone ||
-        !address
-      ) {
-        return res.status(400).json({
-          error: "Себет пен жеткізу деректерін толық толтырыңыз."
-        });
-      }
-
-      // БАҒАНЫ СЕРВЕР ӨЗІ ЕСЕПТЕЙДІ
-      const safeItems = items.map(row => {
-        const product = PRODUCTS.find(
-          p => p.id === Number(row.id)
-        );
-
-        const quantity = Math.max(
-          1,
-          Math.min(20, Number(row.quantity) || 1)
-        );
-
-        if (!product) {
-          throw new Error("Тауар табылмады.");
-        }
-
-        return {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          quantity
-        };
-      });
-
-      const total = safeItems.reduce(
-        (sum, item) =>
-          sum + item.price * item.quantity,
-        0
-      );
-
-      const orderId =
-        "MS" +
-        Date.now() +
-        crypto.randomBytes(3).toString("hex");
-
-      db.prepare(`
-        INSERT INTO orders (
-          id,
-          user_id,
-          customer_name,
-          phone,
-          address,
-          items_json,
-          total,
-          status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'awaiting_payment')
-      `).run(
-        orderId,
-        req.session.user.id,
-        String(customerName).trim(),
-        String(phone).trim(),
-        String(address).trim(),
-        JSON.stringify(safeItems),
-        total
-      );
-
-      // FREEDOM PAY ПАРАМЕТРЛЕРІ
-      const params = {
-        pg_merchant_id: String(
-          process.env.FREEDOMPAY_MERCHANT_ID
-        ),
-
-        pg_order_id: orderId,
-        pg_amount: total.toFixed(2),
-        pg_currency: "KZT",
-
-        pg_description: "MiniShop тапсырысы " + orderId,
-
-        pg_salt: crypto.randomBytes(12).toString("hex"),
-        pg_language: "kk",
-
-        pg_user_contact_email: req.session.user.email,
-
-        pg_result_url:
-          BASE_URL + "/api/payments/freedompay/result",
-
-        pg_success_url:
-          BASE_URL + "/?payment=success",
-
-        pg_failure_url:
-          BASE_URL + "/?payment=failed",
-
-        pg_testing_mode:
-          process.env.FREEDOMPAY_TEST_MODE === "0"
-            ? "0"
-            : "1"
-      };
-
-      params.pg_sig = freedomPaySignature(
-        "init_payment",
-        params,
-        process.env.FREEDOMPAY_SECRET_KEY
-      );
-
-      const response = await fetch(
-        "https://api.freedompay.kz/init_payment",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/x-www-form-urlencoded"
-          },
-
-          body: new URLSearchParams(params)
-        }
-      );
-
-      const xml = await response.text();
-
-      const status = parseXmlValue(xml, "pg_status");
-      const redirectUrl = parseXmlValue(
-        xml,
-        "pg_redirect_url"
-      );
-
-      if (
-        !response.ok ||
-        status !== "ok" ||
-        !redirectUrl ||
-        !redirectUrl.startsWith("https://")
-      ) {
-        console.error("FreedomPay error:", xml);
-
-        return res.status(502).json({
-          error: "Төлем сілтемесін жасау мүмкін болмады."
-        });
-      }
-
-      res.json({
-        redirectUrl,
-        orderId
-      });
-
-    } catch (error) {
-      res.status(400).json({
-        error: error.message ||
-          "Тапсырыс рәсімдеу кезінде қате болды."
-      });
-    }
-  }
-);
-
-// ТӨЛЕМ НӘТИЖЕСІН ҚАБЫЛДАУ
-app.post(
-  "/api/payments/freedompay/result",
-  (req, res) => {
-
-    const params = req.body || {};
-
-    const orderId = String(
-      params.pg_order_id || ""
-    );
-
-    const order = db.prepare(
-      "SELECT * FROM orders WHERE id = ?"
-    ).get(orderId);
-
-    if (!order || !verifyFreedomPay(params)) {
-      return res
-        .status(400)
-        .type("application/xml")
-        .send(
-          "<response><pg_status>rejected</pg_status></response>"
-        );
-    }
-
-    const isPaid = String(params.pg_result) === "1";
-
-    db.prepare(`
-      UPDATE orders
-      SET status = ?,
-          payment_id = ?,
-          payment_method = ?
-      WHERE id = ?
-    `).run(
-      isPaid ? "paid" : "failed",
-      String(params.pg_payment_id || ""),
-      String(params.pg_payment_method || ""),
-      orderId
-    );
-
-    res
-      .status(200)
-      .type("application/xml")
-      .send(
-        "<response><pg_status>ok</pg_status></response>"
-      );
-  }
-);
-
-// СЕРВЕРДІ ТЕКСЕРУ
+// Серверді тексеру
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    message: "MiniShop сервері жұмыс істеп тұр."
+    message: "MiniShop сервері жұмыс істеп тұр!"
   });
 });
 
-// СЕРВЕРДІ ІСКЕ ҚОСУ
 app.listen(PORT, () => {
-  console.log(
-    `MiniShop server running on port ${PORT}`
-  );
+  console.log("MiniShop іске қосылды: " + PORT);
 });
